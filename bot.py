@@ -30,8 +30,8 @@ SP_PAGE           = "smm.studia"   # VK страница для монитори
 SP_CHECK_INTERVAL = 60             # проверка каждую минуту
 SP_QTY_MIN        = 7              # мин кол-во выполнений
 SP_QTY_MAX        = 14             # макс кол-во выполнений
-SP_PRICE_USER     = 1.0            # цена за выполнение для исполнителя (руб)
-SP_PRICE_ADV      = 1.3            # стоимость 1 выполнения для нас (с комиссией)
+SP_PRICE_USER     = 2.5            # цена за выполнение для исполнителя (мин. 2.5 руб)
+SP_PRICE_ADV      = 1.3            # наценка/комиссия сверху за выполнение
 
 # ══════════════════════════════════════
 #  УТИЛИТЫ
@@ -134,14 +134,15 @@ def sp_build_approve_text():
 def sp_create_task(post_url):
     """Создаёт задание (с нашим текстом), сразу пополняет баланс и включает.
     Возвращает True при успехе."""
-    quantity = random.randint(SP_QTY_MIN, SP_QTY_MAX)
-    balance  = round(quantity * SP_PRICE_ADV, 2)   # сумма для покрытия quantity выполнений
-    tail     = post_url.rstrip("/").split("/")[-1]  # напр. wall426046437_1696
+    quantity   = random.randint(SP_QTY_MIN, SP_QTY_MAX)
+    price_adv  = round(SP_PRICE_USER * SP_PRICE_ADV, 2)   # цена 1 выполнения для нас
+    balance    = round(quantity * price_adv, 2)           # покрыть quantity выполнений
+    tail       = post_url.rstrip("/").split("/")[-1]      # напр. wall426046437_1696
 
     task = {
         "name": f"Написать в Вконтакте {tail}",
         "url": [post_url],
-        "type": "comment",
+        "type": "social",
         "description": sp_build_description(post_url),
         "approve_type": "hand",
         "approve_text": sp_build_approve_text(),
