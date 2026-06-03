@@ -146,15 +146,12 @@ def sp_create_task(post_url):
         "approve_type": "hand",
         "approve_text": sp_build_approve_text(),
         "price_user": SP_PRICE_USER,
-        "balance": balance,     # сразу пополнить
-        "turn_on": 1,           # сразу включить
-        "repeat_value": -1,     # одноразовое выполнение одним пользователем
-        "ip_filter": "all",
-        "captcha_type": "no",
+        "balance": balance,
+        "turn_on": 1,
     }
 
     log("SP", f"📤 Создаю задание: {post_url} | {quantity} вып. | баланс {balance} руб")
-    resp = sp_api("task_create", data=json.dumps(task, ensure_ascii=False))
+    resp = sp_api("task_create", data=json.dumps(task, ensure_ascii=True))
     if not resp:
         return False
 
@@ -165,7 +162,6 @@ def sp_create_task(post_url):
         active = d.get("active", "?")
         bal = d.get("balance", "?")
         log("SP", f"🎉 Задание создано! id={tid} | статус={active} | баланс={bal} руб ({quantity} вып.)")
-        # Если по какой-то причине не включилось — пробуем включить явно
         if active != "yes" and tid != "?":
             r2 = sp_api("task_on", task_id=tid)
             if r2 and r2.get("status") == 0:
@@ -175,6 +171,7 @@ def sp_create_task(post_url):
         return True
     else:
         log("SP", f"❌ Ошибка создания (status {status}): {resp.get('text', 'нет текста')}")
+        log("SP", f"📄 Полный ответ: {json.dumps(resp, ensure_ascii=False)[:500]}")
         return False
 
 def sp_check_balance():
