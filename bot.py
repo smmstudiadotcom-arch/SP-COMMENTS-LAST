@@ -26,10 +26,13 @@ SP_API_URL    = "https://socpublic.com/api"
 SP_API_ID     = os.environ.get("SP_API_ID",  "244")
 SP_API_KEY    = os.environ.get("SP_API_KEY", "48A8B0D6-296D-6FC0-94B3-A9500751A704")
 
-SP_PAGES          = ["smm.studia", "pro_samorasvitie"]   # VK страницы для мониторинга
+SP_PAGES          = [
+    # (страница, мин_кол-во, макс_кол-во)
+    ("smm.studia",       7, 14),
+    ("pro_samorasvitie", 7, 14),
+    ("cosmi_store",      3, 5),
+]
 SP_CHECK_INTERVAL = 60             # проверка каждую минуту
-SP_QTY_MIN        = 7              # мин кол-во выполнений
-SP_QTY_MAX        = 14             # макс кол-во выполнений
 SP_PRICE_USER     = 1.0            # цена за выполнение для исполнителя (руб)
 SP_PRICE_ADV      = 1.3            # наценка/комиссия сверху за выполнение
 
@@ -147,10 +150,10 @@ def sp_build_approve_text():
         '2. Ваше имя в Вк</span></strong>'
     )
 
-def sp_create_task(post_url):
+def sp_create_task(post_url, qmin, qmax):
     """Создаёт задание (с нашим текстом), сразу пополняет баланс и включает.
     Возвращает True при успехе."""
-    quantity   = random.randint(SP_QTY_MIN, SP_QTY_MAX)
+    quantity   = random.randint(qmin, qmax)
     price_adv  = round(SP_PRICE_USER * SP_PRICE_ADV, 2)   # цена 1 выполнения для нас
     balance    = round(quantity * price_adv, 2)           # покрыть quantity выполнений
     tail       = post_url.rstrip("/").split("/")[-1]      # напр. wall426046437_1696
@@ -206,15 +209,14 @@ def sp_check_balance():
 # ══════════════════════════════════════
 
 def socpublic_bot():
-    pages_str = ", ".join(SP_PAGES)
-    log("SocPublic", f"💬 Запущен | Страницы: {pages_str} | {SP_QTY_MIN}-{SP_QTY_MAX} вып.")
+    pages_str = ", ".join(p[0] for p in SP_PAGES)
+    log("SocPublic", f"💬 Запущен | Страницы: {pages_str}")
     sp_check_balance()
 
     state_file = "sp_last_post.txt"
     state = load_state_dict(state_file)
 
-    # Первый запуск — запомнить последний пост каждой страницы
-    for page in SP_PAGES:
+    for page, qmin, qmax in SP_PAGES:
         if page not in state:
             post_id, _ = get_vk_post(page)
             if post_id:
@@ -225,13 +227,13 @@ def socpublic_bot():
     while True:
         time.sleep(SP_CHECK_INTERVAL)
         try:
-            for page in SP_PAGES:
+            for page, qmin, qmax in SP_PAGES:
                 latest_id, post_url = get_vk_post(page)
                 if not latest_id:
                     continue
                 if latest_id != state.get(page):
                     log("SocPublic", f"🆕 Новый пост @{page}: {post_url}")
-                    ok = sp_create_task(post_url)
+                    ok = sp_create_task(post_url, qmin, qmax)
                     if ok:
                         state[page] = latest_id
                         save_state_dict(state_file, state)
