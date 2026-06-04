@@ -26,7 +26,7 @@ SP_API_URL    = "https://socpublic.com/api"
 SP_API_ID     = os.environ.get("SP_API_ID",  "244")
 SP_API_KEY    = os.environ.get("SP_API_KEY", "48A8B0D6-296D-6FC0-94B3-A9500751A704")
 
-SP_PAGE           = "smm.studia"   # VK страница для мониторинга
+SP_PAGES          = ["smm.studia", "pro_samorasvitie"]   # VK страницы для мониторинга
 SP_CHECK_INTERVAL = 60             # проверка каждую минуту
 SP_QTY_MIN        = 7              # мин кол-во выполнений
 SP_QTY_MAX        = 14             # макс кол-во выполнений
@@ -50,6 +50,22 @@ def load_state(filename, default=""):
 def save_state(filename, value):
     with open(filename, "w") as f:
         f.write(str(value))
+
+def load_state_dict(filename):
+    """Читает состояние вида 'page id' по строкам в dict."""
+    d = {}
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            for line in f:
+                parts = line.strip().split(" ", 1)
+                if len(parts) == 2:
+                    d[parts[0]] = parts[1]
+    return d
+
+def save_state_dict(filename, d):
+    with open(filename, "w") as f:
+        for k, v in d.items():
+            f.write(f"{k} {v}\n")
 
 # ══════════════════════════════════════
 #  VK
@@ -190,38 +206,41 @@ def sp_check_balance():
 # ══════════════════════════════════════
 
 def socpublic_bot():
-    log("SocPublic", f"💬 Запущен | Страница: vk.com/{SP_PAGE} | {SP_QTY_MIN}-{SP_QTY_MAX} вып.")
+    pages_str = ", ".join(SP_PAGES)
+    log("SocPublic", f"💬 Запущен | Страницы: {pages_str} | {SP_QTY_MIN}-{SP_QTY_MAX} вып.")
     sp_check_balance()
 
     state_file = "sp_last_post.txt"
-    last_id = load_state(state_file)
+    state = load_state_dict(state_file)
 
-    if not last_id:
-        post_id, _ = get_vk_post(SP_PAGE)
-        if post_id:
-            last_id = post_id
-            save_state(state_file, last_id)
-            log("SocPublic", f"📌 @{SP_PAGE} — последний пост: #{post_id}. Жду новые...")
-    else:
-        log("SocPublic", f"📋 Последний обработанный пост: #{last_id}")
+    # Первый запуск — запомнить последний пост каждой страницы
+    for page in SP_PAGES:
+        if page not in state:
+            post_id, _ = get_vk_post(page)
+            if post_id:
+                state[page] = post_id
+                log("SocPublic", f"📌 @{page} — последний пост: #{post_id}. Жду новые...")
+    save_state_dict(state_file, state)
 
     while True:
         time.sleep(SP_CHECK_INTERVAL)
         try:
-            latest_id, post_url = get_vk_post(SP_PAGE)
-            if not latest_id:
-                continue
-            if latest_id != last_id:
-                log("SocPublic", f"🆕 Новый пост: {post_url}")
-                ok = sp_create_task(post_url)
-                if ok:
-                    last_id = latest_id
-                    save_state(state_file, last_id)
-                    log("SocPublic", f"💾 Запомнил пост #{last_id}")
+            for page in SP_PAGES:
+                latest_id, post_url = get_vk_post(page)
+                if not latest_id:
+                    continue
+                if latest_id != state.get(page):
+                    log("SocPublic", f"🆕 Новый пост @{page}: {post_url}")
+                    ok = sp_create_task(post_url)
+                    if ok:
+                        state[page] = latest_id
+                        save_state_dict(state_file, state)
+                        log("SocPublic", f"💾 Запомнил пост #{latest_id}")
+                    else:
+                        log("SocPublic", f"⏸️  Задание не создалось — попробую снова через минуту")
                 else:
-                    log("SocPublic", f"⏸️  Задание не создалось — попробую снова через минуту")
-            else:
-                log("SocPublic", f"🔍 @{SP_PAGE} — нет новых постов (последний: #{last_id})")
+                    log("SocPublic", f"🔍 @{page} — нет новых постов (последний: #{state.get(page)})")
+                time.sleep(2)
         except Exception as e:
             log("SocPublic", f"❌ Ошибка: {e}")
 
