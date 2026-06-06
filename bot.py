@@ -10,7 +10,7 @@ import random
 import time
 import os
 import json
-from datetime import datetime
+from datetime import datetime, date
 
 # ══════════════════════════════════════
 #  VKONTAKTE
@@ -27,10 +27,11 @@ SP_API_ID     = os.environ.get("SP_API_ID",  "244")
 SP_API_KEY    = os.environ.get("SP_API_KEY", "48A8B0D6-296D-6FC0-94B3-A9500751A704")
 
 SP_PAGES          = [
-    # (страница, мин_кол-во, макс_кол-во)
-    ("smm.studia",       7, 14),
-    ("pro_samorasvitie", 7, 14),
-    ("cosmi_store",      3, 5),
+    # (страница, мин_кол-во, макс_кол-во, дата_окончания или None для постоянных)
+    ("smm.studia",         7, 14, None),
+    ("pro_samorasvitie",   7, 14, None),
+    ("cosmi_store",        3, 5,  None),
+    ("secretsofthewallet", 7, 11, "2026-07-07"),
 ]
 SP_CHECK_INTERVAL = 60             # проверка каждую минуту
 SP_PRICE_USER     = 1.0            # цена за выполнение для исполнителя (руб)
@@ -216,7 +217,7 @@ def socpublic_bot():
     state_file = "sp_last_post.txt"
     state = load_state_dict(state_file)
 
-    for page, qmin, qmax in SP_PAGES:
+    for page, qmin, qmax, expires in SP_PAGES:
         if page not in state:
             post_id, _ = get_vk_post(page)
             if post_id:
@@ -227,7 +228,10 @@ def socpublic_bot():
     while True:
         time.sleep(SP_CHECK_INTERVAL)
         try:
-            for page, qmin, qmax in SP_PAGES:
+            today = date.today().isoformat()
+            for page, qmin, qmax, expires in SP_PAGES:
+                if expires and today > expires:
+                    continue  # срок истёк — пропускаем
                 latest_id, post_url = get_vk_post(page)
                 if not latest_id:
                     continue
