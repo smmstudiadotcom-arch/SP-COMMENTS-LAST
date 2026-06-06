@@ -32,6 +32,7 @@ SP_PAGES          = [
     ("pro_samorasvitie",   7, 14, None),
     ("cosmi_store",        3, 5,  None),
     ("secretsofthewallet", 7, 11, "2026-07-07"),
+    ("bf_derevo_zhizni",   5, 10, "2026-07-07"),
 ]
 SP_CHECK_INTERVAL = 60             # проверка каждую минуту
 SP_PRICE_USER     = 1.0            # цена за выполнение для исполнителя (руб)
